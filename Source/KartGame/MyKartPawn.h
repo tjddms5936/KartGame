@@ -15,17 +15,6 @@ public:
 	// Sets default values for this pawn's properties
 	AMyKartPawn();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Custom Setting")
-	class USceneComponent* SceneComponent;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Custom Setting")
-	class USkeletalMeshComponent* MySkeletalMesh;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Custom Setting")
-	class UCameraComponent* Camera;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Custom Setting")
-	class USpringArmComponent* SpringArm;
 
 protected:
 	// Called when the game starts or when spawned
@@ -35,13 +24,39 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+
+
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	// 앞으로 가는 조작
 	void MoveForward(float Value);
 
+	// 회전하는 조작
+	void MoveRight(float Value);
+
+	
 private:
+	void UpdateRotationFromFQuat(float DeltaTime);
+	void UpdateLocationFromVelocity(float DeltaTime);
+
 	FVector Velocity; // 속도 : 속력(speed)에 방향이 더해진 것
 
+	// 자동차의 질량 [단위 : kg]
+	UPROPERTY(EditAnywhere, Category = "Custom Setting")
+	float Mass = 1000;
+
+	// 조절판을 최대로 내렸을때 차에 가해지는 힘 [단위 : N (뉴턴)]
+	// 가속도의 단위는 m/(s*s) 즉, 미터 퍼 섹크 제곱
+	// 1000kg은 1톤인데, 이를 위해서라면 10000뉴턴이 필요한다. 10의 가속도를 얻을 수 있기 떄문이다.
+	UPROPERTY(EditAnywhere, Category = "Custom Setting")
+	float MaxDrivingForce = 10000;
+
+	// 초당 회전할 수 있는 최대 각도[단위 : degree/s]
+	UPROPERTY(EditAnywhere, Category = "Custom Setting")
+	float MaxDegreePerSecond = 90;
+
+	// 조절판
+	float Throttle; // Throttle으로부터 Force -> Acceleration -> Velocity -> Translation  순으로 구해 나간다.
+	float SteeringThrow; // 
 };
