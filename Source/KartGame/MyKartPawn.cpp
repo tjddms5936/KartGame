@@ -27,6 +27,8 @@ void AMyKartPawn::Tick(float DeltaTime)
 
 	// 힘이 최대 추진력이 되도록 설정
 	FVector Force = GetActorForwardVector() * MaxDrivingForce * Throttle; // 힘 = 방향 * 최대추진력 * 조절력
+	Force += GetAirResistance(); // 저항력을 추진력에 추가 
+
 	FVector Acceleration = Force / Mass; // a 구하기
 	Velocity = Velocity + Acceleration * DeltaTime; // 속도를 얻기 위해서는 기존 속도 + 속도의 변화(dt)
 
@@ -61,6 +63,13 @@ void AMyKartPawn::UpdateLocationFromVelocity(float DeltaTime)
 		// 특정 이동 프레임에서 실제로 무언가를 쳤으면 true 반환
 		Velocity = FVector::ZeroVector; // 이 설정을 안해주면, 후진 할 때 기존의 Velocity에서 다시 빼서 음수가 될때까지 후진을 하지 않는다.
 	}
+}
+
+FVector AMyKartPawn::GetAirResistance()
+{
+	// AirResistance = -FMath::Pow(Velocity.Size(), 2) * DragCoefficient;
+	
+	return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
 }
 
 // Called to bind functionality to input

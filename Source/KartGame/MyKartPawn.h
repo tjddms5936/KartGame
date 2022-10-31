@@ -37,9 +37,14 @@ public:
 
 	
 private:
+	// Functions
 	void UpdateRotationFromFQuat(float DeltaTime);
 	void UpdateLocationFromVelocity(float DeltaTime);
+	FVector GetAirResistance();
 
+
+private:
+	// Variables
 	FVector Velocity; // 속도 : 속력(speed)에 방향이 더해진 것
 
 	// 자동차의 질량 [단위 : kg]
@@ -56,7 +61,11 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")
 	float MaxDegreePerSecond = 90;
 
+	// 높을수록 더 많은 항력 [단위 : kg/m]
+	UPROPERTY(EditAnywhere, Category = "Custom Setting")
+	float DragCoefficient = 16; // = MaxDrivingForce / Speed^2 = 10000 / 25^2 = 16
+
 	// 조절판
 	float Throttle; // Throttle으로부터 Force -> Acceleration -> Velocity -> Translation  순으로 구해 나간다.
-	float SteeringThrow; // 
+	float SteeringThrow; // 회전 방향
 };
