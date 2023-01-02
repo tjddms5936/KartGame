@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "MyKartPawn.h"
@@ -25,12 +25,14 @@ void AMyKartPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// ÈûÀÌ ÃÖ´ë ÃßÁø·ÂÀÌ µÇµµ·Ï ¼³Á¤
-	FVector Force = GetActorForwardVector() * MaxDrivingForce * Throttle; // Èû = ¹æÇâ * ÃÖ´ëÃßÁø·Â * Á¶Àı·Â
-	Force += GetAirResistance(); // ÀúÇ×·ÂÀ» ÃßÁø·Â¿¡ Ãß°¡ 
+	// í˜ì´ ìµœëŒ€ ì¶”ì§„ë ¥ì´ ë˜ë„ë¡ ì„¤ì •
+	FVector Force = GetActorForwardVector() * MaxDrivingForce * Throttle; // í˜ = ë°©í–¥ * ìµœëŒ€ì¶”ì§„ë ¥ * ì¡°ì ˆë ¥
+	Force += GetAirResistance(); // ì €í•­ë ¥ì„ ì¶”ì§„ë ¥ì— ì¶”ê°€
+	Force += GetRollingResistance(); // êµ¬ë¥´ê¸° ì €í•­ì„ ì¶”ì§„ë ¥ì— ì¶”ê°€
 
-	FVector Acceleration = Force / Mass; // a ±¸ÇÏ±â
-	Velocity = Velocity + Acceleration * DeltaTime; // ¼Óµµ¸¦ ¾ò±â À§ÇØ¼­´Â ±âÁ¸ ¼Óµµ + ¼ÓµµÀÇ º¯È­(dt)
+	FVector Acceleration = Force / Mass; // a êµ¬í•˜ê¸°
+
+	Velocity = Velocity + Acceleration * DeltaTime; // ì†ë„ë¥¼ ì–»ê¸° ìœ„í•´ì„œëŠ” ê¸°ì¡´ ì†ë„ + ì†ë„ì˜ ë³€í™”(dt)
 
 	UpdateRotationFromFQuat(DeltaTime);
 	
@@ -41,35 +43,50 @@ void AMyKartPawn::Tick(float DeltaTime)
 
 void AMyKartPawn::UpdateRotationFromFQuat(float DeltaTime)
 {
-	float RotationAngle = MaxDegreePerSecond * DeltaTime * SteeringThrow; // {(degree/s) * ÃÊ = ÀÌ ÇÁ·¹ÀÓ¿¡¼­ È¸Àü ÇÒ µµ¼ö} * SteeringThrow  ** ÁÖÀÇ : µµ¼öÀÓ. Radian¾Æ´Ô
-	FQuat RotationDelta(GetActorUpVector(), FMath::DegreesToRadians(RotationAngle)); // DeltaTime¿¡ µû¶ó Æ¯Á¤ °¢µµ·Î È¸ÀüÇÏ´Âµ¥ »ç¿ë
-	Velocity = RotationDelta.RotateVector(Velocity); // VelocityÀÇ ¹æÇâÀ» ¶È°°Àº ¾ç¸¸Å­ È¸Àü½ÃÄÑÁØ´Ù.
+
+	float DeltaLocation = FVector::DotProduct(GetActorForwardVector(), Velocity ) * DeltaTime; // ë°©í–¥ê¹Œì§€ í¬í•¨ëœ ì†ë„ êµ¬í•˜ê¸°
+	float RotationAngle = DeltaLocation / MinTurningRate * SteeringThrow; // {(degree/s) * ì´ˆ = ì´ í”„ë ˆì„ì—ì„œ íšŒì „ í•  ë„ìˆ˜} * SteeringThrow  ** ì£¼ì˜ : ë„ìˆ˜ì„. Radianì•„ë‹˜
+	FQuat RotationDelta(GetActorUpVector(), RotationAngle); // DeltaTimeì— ë”°ë¼ íŠ¹ì • ê°ë„ë¡œ íšŒì „í•˜ëŠ”ë° ì‚¬ìš©
+	Velocity = RotationDelta.RotateVector(Velocity); // Velocityì˜ ë°©í–¥ì„ ë˜‘ê°™ì€ ì–‘ë§Œí¼ íšŒì „ì‹œì¼œì¤€ë‹¤.
 	AddActorWorldRotation(RotationDelta, true);
 	/*
-	GetActorUpVector() : ¿ì¸®ÀÇ Â÷¸¦ Âî¸¦ Ææ. Áï, ÃàÀÌ µÉ °ÍÀÌ´Ù. ÃàÀ» ±âÁØÀ¸·Î È¸Àü
-	RotationAngle : ÇÁ·¹ÀÓ¿¡¼­ È¸Àü ÇÒ µµ¼ö¿Í ¹æÇâÀÌ´Ù.
+	GetActorUpVector() : ìš°ë¦¬ì˜ ì°¨ë¥¼ ì°Œë¥¼ íœ. ì¦‰, ì¶•ì´ ë  ê²ƒì´ë‹¤. ì¶•ì„ ê¸°ì¤€ìœ¼ë¡œ íšŒì „
+	RotationAngle : í”„ë ˆì„ì—ì„œ íšŒì „ í•  ë„ìˆ˜ì™€ ë°©í–¥ì´ë‹¤.
 	*/
 }
 
 void AMyKartPawn::UpdateLocationFromVelocity(float DeltaTime)
 {
-	// TranslationÀº cm ´ÜÀ§ÀÌ´Ù. ÀûÀıÇÑ ´ÜÀ§ º¯È¯ ÇÊ¿ä
-	FVector Translation = 100 * Velocity * DeltaTime; // ¼Óµµ(m/s)¿¡ ÃÊ´ÜÀ§ ½Ã°£À» °öÇÏ¸é m°¡ ³ª¿Â´Ù. ¿©±â¿¡ cm·Î º¯È¯ÇÏ±â À§ÇØ 100À» °öÇÑ´Ù.
+	// Translationì€ cm ë‹¨ìœ„ì´ë‹¤. ì ì ˆí•œ ë‹¨ìœ„ ë³€í™˜ í•„ìš”
+	FVector Translation = 100 * Velocity * DeltaTime; // ì†ë„(m/s)ì— ì´ˆë‹¨ìœ„ ì‹œê°„ì„ ê³±í•˜ë©´ mê°€ ë‚˜ì˜¨ë‹¤. ì—¬ê¸°ì— cmë¡œ ë³€í™˜í•˜ê¸° ìœ„í•´ 100ì„ ê³±í•œë‹¤.
 
 
 	FHitResult HitResult;
-	AddActorWorldOffset(Translation, true, &HitResult); // ¿ùµå °ø°£¿¡¼­ ÀÌ ¾×ÅÍÀÇ À§Ä¡¿¡ µ¨Å¸¸¦ Ãß°¡ÇÕ´Ï´Ù.
+	AddActorWorldOffset(Translation, true, &HitResult); // ì›”ë“œ ê³µê°„ì—ì„œ ì´ ì•¡í„°ì˜ ìœ„ì¹˜ì— ë¸íƒ€ë¥¼ ì¶”ê°€í•©ë‹ˆë‹¤.
 	if (HitResult.IsValidBlockingHit()) {
-		// Æ¯Á¤ ÀÌµ¿ ÇÁ·¹ÀÓ¿¡¼­ ½ÇÁ¦·Î ¹«¾ğ°¡¸¦ ÃÆÀ¸¸é true ¹İÈ¯
-		Velocity = FVector::ZeroVector; // ÀÌ ¼³Á¤À» ¾ÈÇØÁÖ¸é, ÈÄÁø ÇÒ ¶§ ±âÁ¸ÀÇ Velocity¿¡¼­ ´Ù½Ã »©¼­ À½¼ö°¡ µÉ¶§±îÁö ÈÄÁøÀ» ÇÏÁö ¾Ê´Â´Ù.
+		// íŠ¹ì • ì´ë™ í”„ë ˆì„ì—ì„œ ì‹¤ì œë¡œ ë¬´ì–¸ê°€ë¥¼ ì³¤ìœ¼ë©´ true ë°˜í™˜
+		Velocity = FVector::ZeroVector; // ì´ ì„¤ì •ì„ ì•ˆí•´ì£¼ë©´, í›„ì§„ í•  ë•Œ ê¸°ì¡´ì˜ Velocityì—ì„œ ë‹¤ì‹œ ë¹¼ì„œ ìŒìˆ˜ê°€ ë ë•Œê¹Œì§€ í›„ì§„ì„ í•˜ì§€ ì•ŠëŠ”ë‹¤.
 	}
 }
 
 FVector AMyKartPawn::GetAirResistance()
 {
 	// AirResistance = -FMath::Pow(Velocity.Size(), 2) * DragCoefficient;
-	
+	// Velocity.GetSafeNormal()ì€ ë°©í–¥ì´ë‹¤.
 	return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
+}
+
+FVector AMyKartPawn::GetRollingResistance()
+{
+	/*
+	ï»¿RollingResistance = RRCoefficient x NormalForceï»¿ì—ì„œ
+	NormalForceï»¿ì—ì„œ = m * g ì¸ë°, ì–¸ë¦¬ì–¼ì—ì„œ ê¸°ë³¸ì ìœ¼ë¡œ gê°€ ìŒìˆ˜ì´ë¯€ë¡œ ìŒìˆ˜ ë³€í™˜ìœ¼ë¡œ ë°˜í™˜í•´ì¤€ë‹¤.
+	ë°©í–¥ì€ ì—¬ì „íˆ SafeNormalì´ ë  ê²ƒì´ë‹¤. ì™œëƒë©´ ì†ë„ì— ë°˜ëŒ€ë¡œ ê°ˆ ê²ƒì´ê¸° ë•Œë¬¸ì´ë‹¤.
+	êµ¬ë¥´ê¸° ì €í•­ì€ ì—¬ì „íˆ ì €í•­ì´ë¯€ë¡œ ìš´ë™ ë°©í–¥ì˜ ë°˜ëŒ€ë¡œ ì‘ìš©í•œë‹¤ëŠ” ê²ƒ ì•Œì•„ë‘ê¸°
+	*/
+	float AccelerationDueToGravity = -(GetWorld()->GetGravityZ()) / 100;
+	float ï»¿NormalForce = Mass * AccelerationDueToGravity;
+	return -Velocity.GetSafeNormal() * RRCoefficient * ï»¿NormalForce;
 }
 
 // Called to bind functionality to input
@@ -83,10 +100,10 @@ void AMyKartPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 
 void AMyKartPawn::MoveForward(float Value)
 {
-	// Velocity´Â ¹æÇâ°ú ¼Óµµ, ÀüÁø or ÈÄÁøÀÌ ÁÖ¾îÁ®¾ß ÇÑ´Ù.
+	// VelocityëŠ” ë°©í–¥ê³¼ ì†ë„, ì „ì§„ or í›„ì§„ì´ ì£¼ì–´ì ¸ì•¼ í•œë‹¤.
 	//Velocity = GetActorForwardVector() * 20 * Value;  // 20m/s
 
-	// ÃßÁø·Â
+	// ì¶”ì§„ë ¥
 	Throttle = Value;
 }
 

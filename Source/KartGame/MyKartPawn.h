@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -29,10 +29,10 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	// ¾ÕÀ¸·Î °¡´Â Á¶ÀÛ
+	// ì•žìœ¼ë¡œ ê°€ëŠ” ì¡°ìž‘
 	void MoveForward(float Value);
 
-	// È¸ÀüÇÏ´Â Á¶ÀÛ
+	// íšŒì „í•˜ëŠ” ì¡°ìž‘
 	void MoveRight(float Value);
 
 	
@@ -41,31 +41,38 @@ private:
 	void UpdateRotationFromFQuat(float DeltaTime);
 	void UpdateLocationFromVelocity(float DeltaTime);
 	FVector GetAirResistance();
+	FVector GetRollingResistance();
 
 
 private:
 	// Variables
-	FVector Velocity; // ¼Óµµ : ¼Ó·Â(speed)¿¡ ¹æÇâÀÌ ´õÇØÁø °Í
+	FVector Velocity; // ì†ë„ : ì†ë ¥(speed)ì— ë°©í–¥ì´ ë”í•´ì§„ ê²ƒ
 
-	// ÀÚµ¿Â÷ÀÇ Áú·® [´ÜÀ§ : kg]
+	// ìžë™ì°¨ì˜ ì§ˆëŸ‰ [ë‹¨ìœ„ : kg]
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")
 	float Mass = 1000;
 
-	// Á¶ÀýÆÇÀ» ÃÖ´ë·Î ³»·ÈÀ»¶§ Â÷¿¡ °¡ÇØÁö´Â Èû [´ÜÀ§ : N (´ºÅÏ)]
-	// °¡¼ÓµµÀÇ ´ÜÀ§´Â m/(s*s) Áï, ¹ÌÅÍ ÆÛ ¼½Å© Á¦°ö
-	// 1000kgÀº 1ÅæÀÎµ¥, ÀÌ¸¦ À§ÇØ¼­¶ó¸é 10000´ºÅÏÀÌ ÇÊ¿äÇÑ´Ù. 10ÀÇ °¡¼Óµµ¸¦ ¾òÀ» ¼ö ÀÖ±â ‹š¹®ÀÌ´Ù.
+	// ì¡°ì ˆíŒì„ ìµœëŒ€ë¡œ ë‚´ë ¸ì„ë•Œ ì°¨ì— ê°€í•´ì§€ëŠ” íž˜ [ë‹¨ìœ„ : N (ë‰´í„´)]
+	// ê°€ì†ë„ì˜ ë‹¨ìœ„ëŠ” m/(s*s) ì¦‰, ë¯¸í„° í¼ ì„¹í¬ ì œê³±
+	// 1000kgì€ 1í†¤ì¸ë°, ì´ë¥¼ ìœ„í•´ì„œë¼ë©´ 10000ë‰´í„´ì´ í•„ìš”í•œë‹¤. 10ì˜ ê°€ì†ë„ë¥¼ ì–»ì„ ìˆ˜ ìžˆê¸° ë–„ë¬¸ì´ë‹¤.
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")
 	float MaxDrivingForce = 10000;
 
-	// ÃÊ´ç È¸ÀüÇÒ ¼ö ÀÖ´Â ÃÖ´ë °¢µµ[´ÜÀ§ : degree/s]
+	// ì™„ì „ížˆ ëŒë¦° ìƒíƒœì—ì„œ ìžë™ì°¨ íšŒì „ ë°˜ê²½ì˜ ìµœì†Œ ë°˜ì§€ë¦„ [ë‹¨ìœ„ : m]
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")
-	float MaxDegreePerSecond = 90;
+	float MinTurningRate = 10; // ì´ˆë‹¹ íšŒì „ ë°˜ê²½. ëŒ€ë¶€ë¶„ì˜ ì°¨ì˜ ê²½ìš° ì•½ 10ë¯¸í„° ì´ë‹¤.
 
-	// ³ôÀ»¼ö·Ï ´õ ¸¹Àº Ç×·Â [´ÜÀ§ : kg/m]
+	// ë†’ì„ìˆ˜ë¡ ë” ë§Žì€ í•­ë ¥ [ë‹¨ìœ„ : kg/m]
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")
 	float DragCoefficient = 16; // = MaxDrivingForce / Speed^2 = 10000 / 25^2 = 16
 
-	// Á¶ÀýÆÇ
-	float Throttle; // ThrottleÀ¸·ÎºÎÅÍ Force -> Acceleration -> Velocity -> Translation  ¼øÀ¸·Î ±¸ÇØ ³ª°£´Ù.
-	float SteeringThrow; // È¸Àü ¹æÇâ
+	// ë†’ì„ìˆ˜ë¡ ë” ë§Žì€ í•­ë ¥ [ë‹¨ìœ„ : kg/m]
+	UPROPERTY(EditAnywhere, Category = "Custom Setting")
+	float RRCoefficient = 0.015f; // = íƒ€ì´ì–´ ì¢…ë¥˜ì— ë”°ë¼ ë‹¤ì–‘í•œ ê³„ìˆ˜ë“¤ ì¡´ìž¬. ìœ„í‚¤í”¼ë””ì•„ ì°¸ì¡°
+
+
+
+	// ì¡°ì ˆíŒ
+	float Throttle; // Throttleìœ¼ë¡œë¶€í„° Force -> Acceleration -> Velocity -> Translation  ìˆœìœ¼ë¡œ êµ¬í•´ ë‚˜ê°„ë‹¤.
+	float SteeringThrow; // íšŒì „ ë°©í–¥
 };
