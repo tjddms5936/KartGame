@@ -94,11 +94,11 @@ void AMyKartPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAxis("MoveForward", this, &AMyKartPawn::MoveForward); // W S
-	PlayerInputComponent->BindAxis("MoveRight", this, &AMyKartPawn::MoveRight); // A D 
+	PlayerInputComponent->BindAxis("MoveForward", this, &AMyKartPawn::Server_MoveForward); // W S
+	PlayerInputComponent->BindAxis("MoveRight", this, &AMyKartPawn::Server_MoveRight); // A D 
 }
 
-void AMyKartPawn::MoveForward(float Value)
+void AMyKartPawn::Server_MoveForward_Implementation(float Value)
 {
 	// Velocity는 방향과 속도, 전진 or 후진이 주어져야 한다.
 	//Velocity = GetActorForwardVector() * 20 * Value;  // 20m/s
@@ -107,7 +107,17 @@ void AMyKartPawn::MoveForward(float Value)
 	Throttle = Value;
 }
 
-void AMyKartPawn::MoveRight(float Value)
+bool AMyKartPawn::Server_MoveForward_Validate(float Value)
+{
+	return FMath::Abs(Value) <= 1 ? true : false;
+}
+
+void AMyKartPawn::Server_MoveRight_Implementation(float Value)
 {
 	SteeringThrow = Value;
+}
+
+bool AMyKartPawn::Server_MoveRight_Validate(float Value)
+{
+	return FMath::Abs(Value) <= 1 ? true : false;;
 }

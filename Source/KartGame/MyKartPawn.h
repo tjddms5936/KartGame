@@ -30,10 +30,12 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	// 앞으로 가는 조작
-	void MoveForward(float Value);
+	UFUNCTION(Server, Reliable, WithValidation) // ServerRPCFunction이라는 의미
+	void Server_MoveForward(float Value);
 
 	// 회전하는 조작
-	void MoveRight(float Value);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_MoveRight(float Value);
 
 	
 private:
