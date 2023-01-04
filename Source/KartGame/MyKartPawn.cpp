@@ -4,20 +4,28 @@
 #include "MyKartPawn.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-
+#include "DrawDebugHelpers.h"
 #include "Components/InputComponent.h"
+#include "Net/UnrealNetWork.h"
 // Sets default values
 AMyKartPawn::AMyKartPawn()
 {
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
+	bReplicates = true;
 }
 
 // Called when the game starts or when spawned
 void AMyKartPawn::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void AMyKartPawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AMyKartPawn, ReplicatedLocation);
+	DOREPLIFETIME(AMyKartPawn, ReplicatedRotation);
 }
 
 // Called every frame
@@ -38,6 +46,21 @@ void AMyKartPawn::Tick(float DeltaTime)
 	
 
 	UpdateLocationFromVelocity(DeltaTime);
+
+	if (HasAuthority()) {
+		// 서버 의미
+		ReplicatedLocation = GetActorLocation();
+		ReplicatedRotation = GetActorRotation();
+	}
+	else {
+		// 자율 프록시(﻿AutonomousProxy) 또는 시뮬레이션된 프록시(SimulatedProxy) 의미 
+		// 따라서 서버로부터 복제된 위치를 설정하려고 함
+		SetActorLocation(ReplicatedLocation);
+		SetActorRotation(ReplicatedRotation);
+	}
+	
+	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(GetLocalRole()), this, FColor::White, DeltaTime);
+	DrawDebugString(GetWorld(), FVector(0, 0, -200), FString::Printf(TEXT(" %d km/h"), (int)Velocity.Size()), this, FColor::White, DeltaTime);
 
 }
 
@@ -89,13 +112,42 @@ FVector AMyKartPawn::GetRollingResistance()
 	return -Velocity.GetSafeNormal() * RRCoefficient * ﻿NormalForce;
 }
 
+FString AMyKartPawn::GetEnumText(ENetRole Role_)
+{
+	switch (Role_)
+	{
+	case ROLE_None:
+		return "None";
+	case ROLE_SimulatedProxy:
+		return "ROLE_SimulatedProxy";
+	case ROLE_AutonomousProxy:
+		return "ROLE_AutonomousProxy";
+	case ROLE_Authority:
+		return "ROLE_Authority";
+	default:
+		return "Error";
+	}
+}
+
 // Called to bind functionality to input
 void AMyKartPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAxis("MoveForward", this, &AMyKartPawn::Server_MoveForward); // W S
-	PlayerInputComponent->BindAxis("MoveRight", this, &AMyKartPawn::Server_MoveRight); // A D 
+	PlayerInputComponent->BindAxis("MoveForward", this, &AMyKartPawn::MoveForward); // W S
+	PlayerInputComponent->BindAxis("MoveRight", this, &AMyKartPawn::MoveRight); // A D 
+}
+
+void AMyKartPawn::MoveForward(float Value)
+{
+	Throttle = Value;
+	Server_MoveForward(Value);
+}
+
+void AMyKartPawn::MoveRight(float Value)
+{
+	SteeringThrow = Value;
+	Server_MoveRight(Value);
 }
 
 void AMyKartPawn::Server_MoveForward_Implementation(float Value)

@@ -29,6 +29,12 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	UFUNCTION()
+	void MoveForward(float Value);
+
+	UFUNCTION()
+	void MoveRight(float Value);
+
 	// 앞으로 가는 조작
 	UFUNCTION(Server, Reliable, WithValidation) // ServerRPCFunction이라는 의미
 	void Server_MoveForward(float Value);
@@ -45,10 +51,17 @@ private:
 	FVector GetAirResistance();
 	FVector GetRollingResistance();
 
+	FString GetEnumText(ENetRole Role);
 
 private:
 	// Variables
 	FVector Velocity; // 속도 : 속력(speed)에 방향이 더해진 것
+
+	UPROPERTY(replicated)
+	FVector ReplicatedLocation;
+
+	UPROPERTY(replicated)
+	FRotator ReplicatedRotation;
 
 	// 자동차의 질량 [단위 : kg]
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")
