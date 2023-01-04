@@ -43,6 +43,11 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_MoveRight(float Value);
 
+	UPROPERTY(ReplicatedUsing = OnRep_ReplicatedTransform)
+	FTransform ReplicatedTransform;
+
+	UFUNCTION() // 이 함수는 기본적으로 복제 알림이 되는 이벤트로 호출되기 위해 UFUNCTION이어야 한다.
+	void OnRep_ReplicatedTransform();
 	
 private:
 	// Functions
@@ -57,11 +62,6 @@ private:
 	// Variables
 	FVector Velocity; // 속도 : 속력(speed)에 방향이 더해진 것
 
-	UPROPERTY(replicated)
-	FVector ReplicatedLocation;
-
-	UPROPERTY(replicated)
-	FRotator ReplicatedRotation;
 
 	// 자동차의 질량 [단위 : kg]
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")

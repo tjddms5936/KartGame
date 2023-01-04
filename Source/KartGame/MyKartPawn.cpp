@@ -19,13 +19,15 @@ AMyKartPawn::AMyKartPawn()
 void AMyKartPawn::BeginPlay()
 {
 	Super::BeginPlay();
+	if (HasAuthority()) {
+		NetUpdateFrequency = 1; // 디폴트 값은 더 작을 것이다.
+	}
 }
 
 void AMyKartPawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AMyKartPawn, ReplicatedLocation);
-	DOREPLIFETIME(AMyKartPawn, ReplicatedRotation);
+	DOREPLIFETIME(AMyKartPawn, ReplicatedTransform);
 }
 
 // Called every frame
@@ -49,16 +51,13 @@ void AMyKartPawn::Tick(float DeltaTime)
 
 	if (HasAuthority()) {
 		// 서버 의미
-		ReplicatedLocation = GetActorLocation();
-		ReplicatedRotation = GetActorRotation();
+		ReplicatedTransform = GetActorTransform();
 	}
-	else {
-		// 자율 프록시(﻿AutonomousProxy) 또는 시뮬레이션된 프록시(SimulatedProxy) 의미 
-		// 따라서 서버로부터 복제된 위치를 설정하려고 함
-		SetActorLocation(ReplicatedLocation);
-		SetActorRotation(ReplicatedRotation);
+	/*
+	else{
+		SetActorTransform(ReplicatedTransform);  
 	}
-	
+	*/
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(GetLocalRole()), this, FColor::White, DeltaTime);
 	DrawDebugString(GetWorld(), FVector(0, 0, -200), FString::Printf(TEXT(" %d km/h"), (int)Velocity.Size()), this, FColor::White, DeltaTime);
 
@@ -128,6 +127,14 @@ FString AMyKartPawn::GetEnumText(ENetRole Role_)
 		return "Error";
 	}
 }
+
+void AMyKartPawn::OnRep_ReplicatedTransform()
+{
+	// 자율 프록시(﻿AutonomousProxy) 또는 시뮬레이션된 프록시(SimulatedProxy) 의미 
+	// 따라서 서버로부터 복제된 위치를 설정하려고 함
+	SetActorTransform(ReplicatedTransform);
+}
+
 
 // Called to bind functionality to input
 void AMyKartPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
