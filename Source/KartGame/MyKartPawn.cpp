@@ -27,8 +27,7 @@ void AMyKartPawn::BeginPlay()
 void AMyKartPawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AMyKartPawn, ReplicatedTransform);
-	DOREPLIFETIME(AMyKartPawn, Velocity);
+	DOREPLIFETIME(AMyKartPawn, ServerState);
 	DOREPLIFETIME(AMyKartPawn, Throttle); // Throttle으로부터 Force -> Acceleration -> Velocity -> Translation  순으로 구해 나간다.
 	DOREPLIFETIME(AMyKartPawn, SteeringThrow); // 회전 방향
 	
@@ -38,6 +37,15 @@ void AMyKartPawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLif
 void AMyKartPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (IsLocallyControlled()) {
+		// 이 클라이언트에 컨트롤러가 있는지 여부를 확인하는 함수. 즉, 클라이언트라면 아래 작업 수행
+		ServerMove.DeltaTime = DeltaTime;
+		ServerMove.Throttle = Throttle;
+		ServerMove.SteeringThrow = SteeringThrow;
+		// ServerMove.Time Setting 필요 
+		Server_SendMove(ServerMove);
+	}
 
 	// 힘이 최대 추진력이 되도록 설정
 	FVector Force = GetActorForwardVector() * MaxDrivingForce * Throttle; // 힘 = 방향 * 최대추진력 * 조절력
@@ -55,7 +63,9 @@ void AMyKartPawn::Tick(float DeltaTime)
 
 	if (HasAuthority()) {
 		// 서버 의미
-		ReplicatedTransform = GetActorTransform();
+		ServerState.Transform = GetActorTransform(); // 클라이언트에게 표준 상태를 보내는 코드
+		ServerState.Velocity = Velocity; // 클라이언트에게 표준 Velocity 보내기
+		// LastMove 관련 업데이트 해야함
 	}
 	/*
 	else{
@@ -132,11 +142,12 @@ FString AMyKartPawn::GetEnumText(ENetRole Role_)
 	}
 }
 
-void AMyKartPawn::OnRep_ReplicatedTransform()
+void AMyKartPawn::OnRep_ServerState()
 {
-	// 자율 프록시(﻿AutonomousProxy) 또는 시뮬레이션된 프록시(SimulatedProxy) 의미 
-	// 따라서 서버로부터 복제된 위치를 설정하려고 함
-	SetActorTransform(ReplicatedTransform);
+	// 자율 프록시(﻿AutonomousProxy) 또는 시뮬레이션된 프록시(SimulatedProxy) 의미. 따라서 서버로부터 복제된 위치를 설정하려고 함
+	// 이 부분이 바로 수도코드의 OnReceiveServerState의	Step2 과정이다. (Server State로 Reset)
+	SetActorTransform(ServerState.Transform);
+	Velocity = ServerState.Velocity;
 }
 
 
@@ -152,35 +163,23 @@ void AMyKartPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 void AMyKartPawn::MoveForward(float Value)
 {
 	Throttle = Value;
-	Server_MoveForward(Value);
 }
 
 void AMyKartPawn::MoveRight(float Value)
 {
 	SteeringThrow = Value;
-	Server_MoveRight(Value);
 }
 
-void AMyKartPawn::Server_MoveForward_Implementation(float Value)
+void AMyKartPawn::Server_SendMove_Implementation(FMyKartMove Move)
 {
 	// Velocity는 방향과 속도, 전진 or 후진이 주어져야 한다.
 	//Velocity = GetActorForwardVector() * 20 * Value;  // 20m/s
 
-	// 추진력
-	Throttle = Value;
+	Throttle = Move.Throttle;
+	SteeringThrow = Move.SteeringThrow;
 }
 
-bool AMyKartPawn::Server_MoveForward_Validate(float Value)
+bool AMyKartPawn::Server_SendMove_Validate(FMyKartMove Move)
 {
-	return FMath::Abs(Value) <= 1 ? true : false;
-}
-
-void AMyKartPawn::Server_MoveRight_Implementation(float Value)
-{
-	SteeringThrow = Value;
-}
-
-bool AMyKartPawn::Server_MoveRight_Validate(float Value)
-{
-	return FMath::Abs(Value) <= 1 ? true : false;;
+	return true; // TODO
 }

@@ -85,6 +85,9 @@ public:
 	UFUNCTION()
 	void MoveRight(float Value);
 
+	UFUNCTION(Server, Reliable, WithValidation) // ServerRPCFunction이라는 의미
+	void Server_SendMove(FMyKartMove Move); // 이제 Server_SendMove라는 하나의 RPC만 있다.
+	/*
 	// 앞으로 가는 조작
 	UFUNCTION(Server, Reliable, WithValidation) // ServerRPCFunction이라는 의미
 	void Server_MoveForward(float Value);
@@ -92,12 +95,18 @@ public:
 	// 회전하는 조작
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_MoveRight(float Value);
-
-	UPROPERTY(ReplicatedUsing = OnRep_ReplicatedTransform)
-	FTransform ReplicatedTransform;
+	*/
 
 	UFUNCTION() // 이 함수는 기본적으로 복제 알림이 되는 이벤트로 호출되기 위해 UFUNCTION이어야 한다.
-	void OnRep_ReplicatedTransform();
+	void OnRep_ServerState();
+
+	// OnRep_ReplicatedLocation, OnRep_ReplicatedRotation 삭제 후 OnRep_ServerState로 대체
+	
+	UPROPERTY(ReplicatedUsing = OnRep_ServerState)
+	FMyKartState ServerState;
+
+	UPROPERTY()
+	FMyKartMove ServerMove;
 	
 private:
 	// Functions
@@ -112,7 +121,7 @@ private:
 	// Variables
 
 	UPROPERTY(replicated)
-	FVector Velocity; // 속도 : 속력(speed)에 방향이 더해진 것
+	FVector Velocity;
 
 	// 조절판
 	UPROPERTY(replicated)
