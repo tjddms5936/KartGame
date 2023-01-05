@@ -28,6 +28,10 @@ void AMyKartPawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AMyKartPawn, ReplicatedTransform);
+	DOREPLIFETIME(AMyKartPawn, Velocity);
+	DOREPLIFETIME(AMyKartPawn, Throttle); // Throttle으로부터 Force -> Acceleration -> Velocity -> Translation  순으로 구해 나간다.
+	DOREPLIFETIME(AMyKartPawn, SteeringThrow); // 회전 방향
+	
 }
 
 // Called every frame
