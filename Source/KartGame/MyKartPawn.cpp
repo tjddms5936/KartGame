@@ -28,8 +28,6 @@ void AMyKartPawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AMyKartPawn, ServerState);
-	DOREPLIFETIME(AMyKartPawn, Throttle); // Throttle으로부터 Force -> Acceleration -> Velocity -> Translation  순으로 구해 나간다.
-	DOREPLIFETIME(AMyKartPawn, SteeringThrow); // 회전 방향
 	
 }
 
@@ -40,48 +38,26 @@ void AMyKartPawn::Tick(float DeltaTime)
 
 	if (IsLocallyControlled()) {
 		// 이 클라이언트에 컨트롤러가 있는지 여부를 확인하는 함수. 즉, 클라이언트라면 아래 작업 수행
+		// 즉 클라이언트가 Move를 생성해서 서버로 보내는 작업이다.
 		ServerMove.DeltaTime = DeltaTime;
 		ServerMove.Throttle = Throttle;
 		ServerMove.SteeringThrow = SteeringThrow;
 		// ServerMove.Time Setting 필요 
 		Server_SendMove(ServerMove);
+		SimulateMove(ServerMove); // 스스로 시뮬레이션 호출
+		UE_LOG(LogTemp, Warning, TEXT("Tick Moving!!!"));
 	}
 
-	// 힘이 최대 추진력이 되도록 설정
-	FVector Force = GetActorForwardVector() * MaxDrivingForce * Throttle; // 힘 = 방향 * 최대추진력 * 조절력
-	Force += GetAirResistance(); // 저항력을 추진력에 추가
-	Force += GetRollingResistance(); // 구르기 저항을 추진력에 추가
-
-	FVector Acceleration = Force / Mass; // a 구하기
-
-	Velocity = Velocity + Acceleration * DeltaTime; // 속도를 얻기 위해서는 기존 속도 + 속도의 변화(dt)
-
-	UpdateRotationFromFQuat(DeltaTime);
-	
-
-	UpdateLocationFromVelocity(DeltaTime);
-
-	if (HasAuthority()) {
-		// 서버 의미
-		ServerState.Transform = GetActorTransform(); // 클라이언트에게 표준 상태를 보내는 코드
-		ServerState.Velocity = Velocity; // 클라이언트에게 표준 Velocity 보내기
-		// LastMove 관련 업데이트 해야함
-	}
-	/*
-	else{
-		SetActorTransform(ReplicatedTransform);  
-	}
-	*/
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(GetLocalRole()), this, FColor::White, DeltaTime);
 	DrawDebugString(GetWorld(), FVector(0, 0, -200), FString::Printf(TEXT(" %d km/h"), (int)Velocity.Size()), this, FColor::White, DeltaTime);
 
 }
 
-void AMyKartPawn::UpdateRotationFromFQuat(float DeltaTime)
+void AMyKartPawn::UpdateRotationFromFQuat(float DeltaTime, float SteeringThrow_)
 {
 
 	float DeltaLocation = FVector::DotProduct(GetActorForwardVector(), Velocity ) * DeltaTime; // 방향까지 포함된 속도 구하기
-	float RotationAngle = DeltaLocation / MinTurningRate * SteeringThrow; // {(degree/s) * 초 = 이 프레임에서 회전 할 도수} * SteeringThrow  ** 주의 : 도수임. Radian아님
+	float RotationAngle = DeltaLocation / MinTurningRate * SteeringThrow_; // {(degree/s) * 초 = 이 프레임에서 회전 할 도수} * SteeringThrow  ** 주의 : 도수임. Radian아님
 	FQuat RotationDelta(GetActorUpVector(), RotationAngle); // DeltaTime에 따라 특정 각도로 회전하는데 사용
 	Velocity = RotationDelta.RotateVector(Velocity); // Velocity의 방향을 똑같은 양만큼 회전시켜준다.
 	AddActorWorldRotation(RotationDelta, true);
@@ -142,6 +118,22 @@ FString AMyKartPawn::GetEnumText(ENetRole Role_)
 	}
 }
 
+void AMyKartPawn::SimulateMove(FMyKartMove Move)
+{
+	// 이제 입력에 대한 모든 데이터는 액터에서 직접 오는게 아니라 Move를 통해 들어온다 
+	FVector Force = GetActorForwardVector() * MaxDrivingForce * Move.Throttle; // 힘 = 방향 * 최대추진력 * 조절력
+	Force += GetAirResistance(); // 저항력을 추진력에 추가
+	Force += GetRollingResistance(); // 구르기 저항을 추진력에 추가
+
+	FVector Acceleration = Force / Mass; // a 구하기
+
+	Velocity = Velocity + Acceleration * Move.DeltaTime; // 속도를 얻기 위해서는 기존 속도 + 속도의 변화(dt)
+
+	UpdateRotationFromFQuat(Move.DeltaTime, Move.SteeringThrow);
+
+	UpdateLocationFromVelocity(Move.DeltaTime);
+}
+
 void AMyKartPawn::OnRep_ServerState()
 {
 	// 자율 프록시(﻿AutonomousProxy) 또는 시뮬레이션된 프록시(SimulatedProxy) 의미. 따라서 서버로부터 복제된 위치를 설정하려고 함
@@ -172,11 +164,14 @@ void AMyKartPawn::MoveRight(float Value)
 
 void AMyKartPawn::Server_SendMove_Implementation(FMyKartMove Move)
 {
-	// Velocity는 방향과 속도, 전진 or 후진이 주어져야 한다.
-	//Velocity = GetActorForwardVector() * 20 * Value;  // 20m/s
+	SimulateMove(Move);
+	ServerState.LastMove = Move; // 방금 시뮬레이션 한 Move가 됨
 
-	Throttle = Move.Throttle;
-	SteeringThrow = Move.SteeringThrow;
+	// Tick에서 작업하던게 여기로 옮겨짐. 이 작업을 통해 더이상 Throttle, SteeringThrow는 Replicated 될 필요가 없음. 
+	// 아래 작업을 통해 완벽하게 복제됨.
+	ServerState.Transform = GetActorTransform(); // 클라이언트에게 표준 상태를 보내는 코드
+	ServerState.Velocity = Velocity; // 클라이언트에게 표준 Velocity 보내기
+	// LastMove 관련 업데이트 해야함
 }
 
 bool AMyKartPawn::Server_SendMove_Validate(FMyKartMove Move)
