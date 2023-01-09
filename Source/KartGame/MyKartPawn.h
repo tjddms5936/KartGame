@@ -42,7 +42,7 @@ public:
 	속도와 트랜스폼이 있으므로 상태를 클라이언트에 보낼 수 있고, 클라이언트는 우리가 그걸 보냈기 떄문에 시뮬레이션 할 수 있다.
 	마지막 이동도 적용되어 그 사이에 계속 보간할 수 있다.
 	*/
-
+	UPROPERTY()
 	FMyKartMove LastMove; // 이 상태를 만드는 마지막 이동이 될 것이며, 우리가 비자율인 시뮬레이션된 프록시에 있기 떄문에 도움이 될 것이다. 
 	/*
 	자율 프록시﻿(AutonomousProxy)인 경우 즉, 클라이언트.(서버 상태를 수신하는 로컬﻿의  ﻿OnReceiveServerState)
@@ -95,8 +95,6 @@ public:
 	UPROPERTY(ReplicatedUsing = OnRep_ServerState)
 	FMyKartState ServerState;
 
-	UPROPERTY()
-	FMyKartMove ServerMove;
 	
 private:
 	// Functions
@@ -112,12 +110,19 @@ private:
 
 	void SimulateMove(FMyKartMove Move);
 
+	FMyKartMove CreateMove(float DeltaTime);
+
+	TArray<FMyKartMove> UnAcknowlegedmoves; // 클라이언트에만 저장되는 데이터
+
+	void ClearUnAcknowlegemoves(FMyKartMove LastMove);
+
 	UPROPERTY(replicated)
 	FVector Velocity;
 
 	// 조절판
 	float Throttle; // Throttle으로부터 Force -> Acceleration -> Velocity -> Translation  순으로 구해 나간다.
 	float SteeringThrow; // 회전 방향
+
 
 	// 자동차의 질량 [단위 : kg]
 	UPROPERTY(EditAnywhere, Category = "Custom Setting")

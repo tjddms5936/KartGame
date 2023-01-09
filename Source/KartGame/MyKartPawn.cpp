@@ -39,16 +39,20 @@ void AMyKartPawn::Tick(float DeltaTime)
 	if (IsLocallyControlled()) {
 		// 이 클라이언트에 컨트롤러가 있는지 여부를 확인하는 함수. 즉, 클라이언트라면 아래 작업 수행
 		// 즉 클라이언트가 Move를 생성해서 서버로 보내는 작업이다.
-		ServerMove.DeltaTime = DeltaTime;
-		ServerMove.Throttle = Throttle;
-		ServerMove.SteeringThrow = SteeringThrow;
-		// ServerMove.Time Setting 필요 
-		Server_SendMove(ServerMove);
-		SimulateMove(ServerMove); // 스스로 시뮬레이션 호출
-		UE_LOG(LogTemp, Warning, TEXT("Tick Moving!!!"));
+		FMyKartMove Move = CreateMove(DeltaTime);  // OnTick Step1
+
+		// 서버인 경우에는 큐에 추가 할 필요가 없음
+		if (!HasAuthority()) {
+			// 클라이언트인 경우에만
+			UnAcknowlegedmoves.Add(Move); // OnTick Step2
+			UE_LOG(LogTemp, Warning, TEXT("UnAcknowlegedmoves Length : %d"), UnAcknowlegedmoves.Num());
+		}
+
+		Server_SendMove(Move); // OnTick Step3
+		SimulateMove(Move); // // OnTick Step4 스스로 시뮬레이션 호출
 	}
 
-	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(GetLocalRole()), this, FColor::White, DeltaTime);
+	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(GetLocalRole()), this, FColor::White, DeltaTime); 
 	DrawDebugString(GetWorld(), FVector(0, 0, -200), FString::Printf(TEXT(" %d km/h"), (int)Velocity.Size()), this, FColor::White, DeltaTime);
 
 }
@@ -134,12 +138,43 @@ void AMyKartPawn::SimulateMove(FMyKartMove Move)
 	UpdateLocationFromVelocity(Move.DeltaTime);
 }
 
+FMyKartMove AMyKartPawn::CreateMove(float DeltaTime)
+{
+	FMyKartMove move;
+	move.DeltaTime = DeltaTime;
+	move.Throttle = Throttle;
+	move.SteeringThrow = SteeringThrow;
+	move.Time = GetWorld()->TimeSeconds; // 게임 시뮬레이션 시간. 타임 스탬프로써 활용 할 것이다. 
+	return move;
+}
+
+void AMyKartPawn::ClearUnAcknowlegemoves(FMyKartMove LastMove)
+{
+	// LastMove는 NewMoves 배열을 반복한다.
+	TArray<FMyKartMove> NewMoves; // LastMvoe 시간보다 더 큰 것들
+
+	if (UnAcknowlegedmoves.Num() > 0) {
+		// 참조가 될 것이므로 항상 복사 할 필요가 없어 const를 쓴다.즉, 수정하지 않을 것이라서
+		for (const FMyKartMove& Move : UnAcknowlegedmoves) {
+			// 마지막 Move시간(ServerMove.Time) 보다 작거나 같은 모든 항목은 이제 의미가 없어짐.
+			if (Move.Time > LastMove.Time) {
+				NewMoves.Add(Move);
+			}
+		}
+		UnAcknowlegedmoves = NewMoves;
+	}
+	
+	// 이 함수는 언제 호출 되어야 할까? : 클라이언트가 서버에서 NewState를 '수신'할 때인 OnRep_ServerState 이다. 
+}
+
 void AMyKartPawn::OnRep_ServerState()
 {
 	// 자율 프록시(﻿AutonomousProxy) 또는 시뮬레이션된 프록시(SimulatedProxy) 의미. 따라서 서버로부터 복제된 위치를 설정하려고 함
 	// 이 부분이 바로 수도코드의 OnReceiveServerState의	Step2 과정이다. (Server State로 Reset)
 	SetActorTransform(ServerState.Transform);
 	Velocity = ServerState.Velocity;
+
+	ClearUnAcknowlegemoves(ServerState.LastMove); // 큐 정리
 }
 
 
@@ -166,12 +201,10 @@ void AMyKartPawn::Server_SendMove_Implementation(FMyKartMove Move)
 {
 	SimulateMove(Move);
 	ServerState.LastMove = Move; // 방금 시뮬레이션 한 Move가 됨
-
 	// Tick에서 작업하던게 여기로 옮겨짐. 이 작업을 통해 더이상 Throttle, SteeringThrow는 Replicated 될 필요가 없음. 
 	// 아래 작업을 통해 완벽하게 복제됨.
 	ServerState.Transform = GetActorTransform(); // 클라이언트에게 표준 상태를 보내는 코드
 	ServerState.Velocity = Velocity; // 클라이언트에게 표준 Velocity 보내기
-	// LastMove 관련 업데이트 해야함
 }
 
 bool AMyKartPawn::Server_SendMove_Validate(FMyKartMove Move)
